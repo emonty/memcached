@@ -285,6 +285,8 @@ static void do_slabs_free(void *ptr, const size_t size, unsigned int id) {
     mem_malloced -= size;
     free(ptr);
     return;
+#else
+    (void)size;
 #endif
 
     if (p->sl_curr == p->sl_total) { /* need more space on the free list */

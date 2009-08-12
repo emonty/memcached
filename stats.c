@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <inttypes.h>
 
 /*
  * Stats are tracked on the basis of key prefixes. This is a simple
@@ -33,7 +34,7 @@ struct _prefix_stats {
 
 static PREFIX_STATS *prefix_stats[PREFIX_HASH_SIZE];
 static int num_prefixes = 0;
-static int total_prefix_size = 0;
+static size_t total_prefix_size = 0;
 
 void stats_prefix_init() {
     memset(prefix_stats, 0, sizeof(prefix_stats));
@@ -153,15 +154,16 @@ void stats_prefix_record_set(const char *key, const size_t nkey) {
     STATS_UNLOCK();
 }
 
+#define PREFIX_STATS_FORMAT "PREFIX %s get %" PRIu64 " hit %" PRIu64 " set %" PRIu64 " del %" PRIu64 "\r\n"
 /*
  * Returns stats in textual form suitable for writing to a client.
  */
 /*@null@*/
 char *stats_prefix_dump(int *length) {
-    const char *format = "PREFIX %s get %llu hit %llu set %llu del %llu\r\n";
+    const char *format = PREFIX_STATS_FORMAT;
     PREFIX_STATS *pfs;
     char *buf;
-    int i, pos;
+    size_t i, pos;
     size_t size = 0, written = 0, total_written = 0;
 
     /*
@@ -171,9 +173,9 @@ char *stats_prefix_dump(int *length) {
      * plus space for the "END" at the end.
      */
     STATS_LOCK();
-    size = strlen(format) + total_prefix_size +
-           num_prefixes * (strlen(format) - 2 /* %s */
-                           + 4 * (20 - 4)) /* %llu replaced by 20-digit num */
+    size = strlen(format) + (size_t)total_prefix_size +
+           (size_t)num_prefixes * (strlen(format) - (size_t)2 /* %s */
+                           + (size_t)(4 * (20 - 4))) /* %llu replaced by 20-digit num */
                            + sizeof("END\r\n");
     buf = malloc(size);
     if (NULL == buf) {
@@ -185,7 +187,7 @@ char *stats_prefix_dump(int *length) {
     pos = 0;
     for (i = 0; i < PREFIX_HASH_SIZE; i++) {
         for (pfs = prefix_stats[i]; NULL != pfs; pfs = pfs->next) {
-            written = snprintf(buf + pos, size-pos, format,
+            written = (size_t)snprintf(buf + pos, size-pos, PREFIX_STATS_FORMAT,
                            pfs->prefix, pfs->num_gets, pfs->num_hits,
                            pfs->num_sets, pfs->num_deletes);
             pos += written;
@@ -197,7 +199,7 @@ char *stats_prefix_dump(int *length) {
     STATS_UNLOCK();
     memcpy(buf + pos, "END\r\n", 6);
 
-    *length = pos + 5;
+    *length = (int)pos + 5;
     return buf;
 }
 
