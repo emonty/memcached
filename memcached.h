@@ -321,13 +321,13 @@ struct conn {
 
     char   *rbuf;   /** buffer to read commands into */
     char   *rcurr;  /** but if we parsed some already, this is where we stopped */
-    int    rsize;   /** total allocated size of rbuf */
-    int    rbytes;  /** how much data, starting from rcur, do we have unparsed */
+    size_t    rsize;   /** total allocated size of rbuf */
+    size_t    rbytes;  /** how much data, starting from rcur, do we have unparsed */
 
     char   *wbuf;
     char   *wcurr;
-    int    wsize;
-    int    wbytes;
+    size_t    wsize;
+    size_t    wbytes;
     /** which state to go into after finishing current write */
     enum conn_states  write_and_go;
     void   *write_and_free; /** free this memory after finishing writing */
@@ -346,28 +346,28 @@ struct conn {
     void   *item;     /* for commands set/add/replace  */
 
     /* data for the swallow state */
-    int    sbytes;    /* how many bytes to swallow */
+    unsigned int    sbytes;    /* how many bytes to swallow */
 
     /* data for the mwrite state */
     struct iovec *iov;
-    int    iovsize;   /* number of elements allocated in iov[] */
-    int    iovused;   /* number of elements used in iov[] */
+    unsigned int    iovsize;   /* number of elements allocated in iov[] */
+    unsigned int    iovused;   /* number of elements used in iov[] */
 
     struct msghdr *msglist;
-    int    msgsize;   /* number of elements allocated in msglist[] */
-    int    msgused;   /* number of elements used in msglist[] */
-    int    msgcurr;   /* element in msglist[] being transmitted now */
-    int    msgbytes;  /* number of bytes in current msg */
+    unsigned int    msgsize;   /* number of elements allocated in msglist[] */
+    unsigned int    msgused;   /* number of elements used in msglist[] */
+    unsigned int    msgcurr;   /* element in msglist[] being transmitted now */
+    unsigned int    msgbytes;  /* number of bytes in current msg */
 
     item   **ilist;   /* list of items to write out */
-    int    isize;
+    unsigned int    isize;
     item   **icurr;
-    int    ileft;
+    unsigned int    ileft;
 
     char   **suffixlist;
-    int    suffixsize;
+    unsigned int    suffixsize;
     char   **suffixcurr;
-    int    suffixleft;
+    unsigned int    suffixleft;
 
     enum protocol protocol;   /* which protocol this connection speaks */
     enum network_transport transport; /* what transport is used by this connection */
@@ -377,7 +377,7 @@ struct conn {
     struct sockaddr request_addr; /* Who sent the most recent request */
     socklen_t request_addr_size;
     unsigned char *hdrbuf; /* udp packet headers */
-    int    hdrsize;   /* number of headers' worth of space is allocated */
+    unsigned int    hdrsize;   /* number of headers' worth of space is allocated */
 
     bool   noreply;   /* True if the reply should not be sent. */
     /* current stats command */
@@ -409,7 +409,7 @@ void do_accept_new_conns(const bool do_accept);
 enum delta_result_type do_add_delta(conn *c, item *item, const bool incr,
                                     const int64_t delta, char *buf);
 enum store_item_type do_store_item(item *item, int comm, conn* c);
-conn *conn_new(const int sfd, const enum conn_states init_state, const int event_flags, const int read_buffer_size, enum network_transport transport, struct event_base *base);
+conn *conn_new(const int sfd, const enum conn_states init_state, const short event_flags, const unsigned int read_buffer_size, enum network_transport transport, struct event_base *base);
 extern int daemonize(int nochdir, int noclose);
 
 
@@ -463,7 +463,7 @@ void append_stat(const char *name, ADD_STAT add_stats, conn *c,
 
 enum store_item_type store_item(item *item, int comm, conn *c);
 
-#if HAVE_DROP_PRIVILEGES
+#if defined(HAVE_DROP_PRIVILEGES)
 extern void drop_privileges();
 #else
 #define drop_privileges()

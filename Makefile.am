@@ -1,3 +1,5 @@
+ACLOCAL_AMFLAGS = -I m4
+
 bin_PROGRAMS = memcached
 pkginclude_HEADERS = protocol_binary.h
 noinst_PROGRAMS = memcached-debug sizes testapp
@@ -6,6 +8,7 @@ BUILT_SOURCES=
 
 testapp_SOURCES = testapp.c util.c util.h
 
+memcached_CFLAGS = ${AM_CFLAGS} ${NO_CONVERSION}
 memcached_SOURCES = memcached.c memcached.h \
                     hash.c hash.h \
                     slabs.c slabs.h \
@@ -26,21 +29,20 @@ memcached_SOURCES += solaris_priv.c
 endif
 
 memcached_debug_SOURCES = $(memcached_SOURCES)
-memcached_CPPFLAGS = -DNDEBUG
-memcached_debug_LDADD = @PROFILER_LDFLAGS@
-memcached_debug_CFLAGS = @PROFILER_FLAGS@
+memcached_debug_LDADD = ${PROFILER_LDFLAGS} ${LTLIBEVENT}
+memcached_debug_CFLAGS = ${AM_CFLAGS} ${PROFILER_FLAGS} ${NO_CONVERSION}
 
-memcached_LDADD = 
+memcached_LDADD =  ${LTLIBEVENT}
 memcached_DEPENDENCIES =
 memcached_debug_DEPENDENCIES = 
 CLEANFILES=
 
-if BUILD_DTRACE
+if HAVE_DTRACE
 BUILT_SOURCES += memcached_dtrace.h
 CLEANFILES += memcached_dtrace.h
 endif
 
-if DTRACE_INSTRUMENT_OBJ
+if DTRACE_NEEDS_OBJECTS
 memcached_LDADD += memcached_dtrace.o
 memcached_DEPENDENCIES += memcached_dtrace.o
 memcached_debug_LDADD += memcached_debug_dtrace.o

@@ -91,7 +91,7 @@ static void complete_nread(conn *c);
 static void process_command(conn *c, char *command);
 static void write_and_free(conn *c, char *buf, int bytes);
 static int ensure_iov_space(conn *c);
-static int add_iov(conn *c, const void *buf, int len);
+static int add_iov(conn *c, const void *buf, unsigned int len);
 static int add_msghdr(conn *c);
 static uint64_t mc_swap64(uint64_t in);
 
@@ -244,8 +244,8 @@ static int add_msghdr(conn *c)
  */
 
 static conn **freeconns;
-static int freetotal;
-static int freecurr;
+static size_t freetotal;
+static size_t freecurr;
 /* Lock for connection freelist */
 static pthread_mutex_t conn_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -301,25 +301,27 @@ bool conn_add_to_freelist(conn *c) {
 }
 
 static const char *prot_text(enum protocol prot) {
-    char *rv = "unknown";
+    const char *rv = "unknown";
     switch(prot) {
-        case ascii_prot:
-            rv = "ascii";
-            break;
-        case binary_prot:
-            rv = "binary";
-            break;
-        case negotiating_prot:
-            rv = "auto-negotiate";
-            break;
+    case ascii_prot:
+        rv = "ascii";
+        break;
+    case binary_prot:
+        rv = "binary";
+        break;
+    case negotiating_prot:
+        rv = "auto-negotiate";
+        break;
+    default:
+        break;
     }
     return rv;
 }
 
 conn *conn_new(const int sfd, enum conn_states init_state,
-                const int event_flags,
-                const int read_buffer_size, enum network_transport transport,
-                struct event_base *base) {
+               const short event_flags,
+               const unsigned int read_buffer_size, enum network_transport transport,
+               struct event_base *base) {
     conn *c = conn_from_freelist();
 
     if (NULL == c) {
@@ -597,7 +599,6 @@ static const char *state_text(enum conn_states state) {
  */
 static void conn_set_state(conn *c, enum conn_states state) {
     assert(c != NULL);
-    assert(state >= conn_listening && state < conn_max_state);
 
     if (state != c->state) {
         if (settings.verbose > 2) {
@@ -624,7 +625,8 @@ static int ensure_iov_space(conn *c) {
     assert(c != NULL);
 
     if (c->iovused >= c->iovsize) {
-        int i, iovnum;
+        unsigned int i;
+        size_t iovnum;
         struct iovec *new_iov = (struct iovec *)realloc(c->iov,
                                 (c->iovsize * 2) * sizeof(struct iovec));
         if (! new_iov)
@@ -650,9 +652,9 @@ static int ensure_iov_space(conn *c) {
  * Returns 0 on success, -1 on out-of-memory.
  */
 
-static int add_iov(conn *c, const void *buf, int len) {
+static int add_iov(conn *c, const void *buf, unsigned int len) {
     struct msghdr *m;
-    int leftover;
+    unsigned int leftover;
     bool limit_to_mtu;
 
     assert(c != NULL);
@@ -704,7 +706,7 @@ static int add_iov(conn *c, const void *buf, int len) {
  * Constructs a set of UDP headers and attaches them to the outgoing messages.
  */
 static int build_udp_headers(conn *c) {
-    int i;
+    unsigned int i;
     unsigned char *hdr;
 
     assert(c != NULL);
@@ -725,12 +727,12 @@ static int build_udp_headers(conn *c) {
     for (i = 0; i < c->msgused; i++) {
         c->msglist[i].msg_iov[0].iov_base = (void*)hdr;
         c->msglist[i].msg_iov[0].iov_len = UDP_HEADER_SIZE;
-        *hdr++ = c->request_id / 256;
-        *hdr++ = c->request_id % 256;
-        *hdr++ = i / 256;
-        *hdr++ = i % 256;
-        *hdr++ = c->msgused / 256;
-        *hdr++ = c->msgused % 256;
+        *hdr++ = (unsigned char)(c->request_id / 256);
+        *hdr++ = (unsigned char)(c->request_id % 256);
+        *hdr++ = (unsigned char)(i / 256);
+        *hdr++ = (unsigned char)(i % 256);
+        *hdr++ = (unsigned char)(c->msgused / 256);
+        *hdr++ = (unsigned char)(c->msgused % 256);
         *hdr++ = 0;
         *hdr++ = 0;
         assert((void *) hdr == (caddr_t)c->msglist[i].msg_iov[0].iov_base + UDP_HEADER_SIZE);
@@ -894,7 +896,7 @@ static void add_bin_header(conn *c, uint16_t err, uint8_t hdr_len, uint16_t key_
     header->response.cas = mc_swap64(c->cas);
 
     if (settings.verbose > 1) {
-        int ii;
+        unsigned int ii;
         fprintf(stderr, ">%d Writing bin response:", c->sfd);
         for (ii = 0; ii < sizeof(header->bytes); ++ii) {
             if (ii % 4 == 0) {
@@ -937,6 +939,7 @@ static void write_bin_error(conn *c, protocol_binary_response_status err, int sw
     case PROTOCOL_BINARY_RESPONSE_NOT_STORED:
         errstr = "Not stored.";
         break;
+    case PROTOCOL_BINARY_RESPONSE_SUCCESS:
     default:
         assert(false);
         errstr = "UNHANDLED ERROR";
@@ -978,7 +981,10 @@ static void write_bin_response(conn *c, void *d, int hlen, int keylen, int dlen)
 
 /* Byte swap a 64-bit number */
 static uint64_t mc_swap64(uint64_t in) {
-#ifdef ENDIAN_LITTLE
+#if defined(WORDS_BIGENDIAN)
+    /* big-endian machines don't need byte swapping */
+    return in;
+#else
     /* Little endian, flip the bytes around until someone makes a faster/better
     * way to do this. */
     int64_t rv = 0;
@@ -988,9 +994,6 @@ static uint64_t mc_swap64(uint64_t in) {
         in >>= 8;
      }
     return rv;
-#else
-    /* big-endian machines don't need byte swapping */
-    return in;
 #endif
 }
 
