@@ -67,7 +67,7 @@ bool safe_strtoul(const char *str, uint32_t *out) {
                 return false;
             }
         }
-        *out = l;
+        *out = (uint32_t)l;
         return true;
     }
 
@@ -83,7 +83,7 @@ bool safe_strtol(const char *str, int32_t *out) {
     if (errno == ERANGE)
         return false;
     if (isspace(*endptr) || (*endptr == '\0' && endptr != str)) {
-        *out = l;
+        *out = (int32_t)l;
         return true;
     }
     return false;

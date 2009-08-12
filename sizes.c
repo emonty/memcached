@@ -8,6 +8,9 @@ static void display(const char *name, size_t size) {
 
 int main(int argc, char **argv) {
 
+    (void)argc;
+    (void)argv;
+
     display("Slab Stats", sizeof(struct slab_stats));
     display("Thread stats",
             sizeof(struct thread_stats)

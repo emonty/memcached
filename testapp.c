@@ -28,6 +28,8 @@ static enum test_return cache_create_test(void)
 const uint64_t constructor_pattern = 0xdeadcafebabebeef;
 
 static int cache_constructor(void *buffer, void *notused1, int notused2) {
+    (void)notused1;
+    (void)notused2;
     uint64_t *ptr = buffer;
     *ptr = constructor_pattern;
     return 0;
@@ -46,6 +48,9 @@ static enum test_return cache_constructor_test(void)
 }
 
 static int cache_fail_constructor(void *buffer, void *notused1, int notused2) {
+    (void)buffer;
+    (void)notused1;
+    (void)notused2;
     return 1;
 }
 
@@ -67,6 +72,7 @@ static enum test_return cache_fail_constructor_test(void)
 static void *destruct_data = 0;
 
 static void cache_destructor(void *buffer, void *notused) {
+    (void)notused;
     destruct_data = buffer;
 }
 
@@ -241,7 +247,7 @@ static enum test_return test_issue_44(void) {
     assert(fp);
     assert(fgets(buffer, sizeof(buffer), fp));
     fclose(fp);
-    pid_t pid = atol(buffer);
+    pid_t pid = (pid_t)atol(buffer);
     assert(kill(pid, 0) == 0);
     assert(kill(pid, SIGHUP) == 0);
     sleep(1);
@@ -277,14 +283,16 @@ struct testcase testcases[] = {
 
 int main(int argc, char **argv)
 {
+    (void)argc;
+    (void)argv;
     int exitcode = 0;
     int ii;
-    const int paddingsz = 60;
+    const size_t paddingsz = 60;
     char padding[paddingsz + 1];
     memset(padding, ' ', paddingsz);
 
     for (ii = 0; testcases[ii].description != NULL; ++ii) {
-        int len = strlen(testcases[ii].description);
+        size_t len = strlen(testcases[ii].description);
         if (len > paddingsz) {
             len = paddingsz;
         }
